@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-stone-950 text-white font-sans;
+  }
+}
+
+section {
+  scroll-margin-top: 6rem;
+}

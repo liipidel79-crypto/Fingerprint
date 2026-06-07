@@ -1,0 +1,142 @@
+-- ============================================
+-- VOTING SYSTEM DATABASE SETUP
+-- MySQL Database Creation and Table Scripts
+-- ============================================
+
+-- Create the database
+CREATE DATABASE IF NOT EXISTS voting_system;
+USE voting_system;
+
+-- ============================================
+-- ADMINS TABLE
+-- Stores administrator account information
+-- ============================================
+CREATE TABLE IF NOT EXISTS admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at_timestamp INT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- CANDIDATES TABLE
+-- Stores election candidate information
+-- ============================================
+CREATE TABLE IF NOT EXISTS candidates (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    party VARCHAR(100) NOT NULL,
+    photo_url VARCHAR(255),
+    position VARCHAR(50) NOT NULL,
+    vote_count INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at_timestamp INT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- VOTERS TABLE
+-- Stores voter registration and biometric data
+-- ============================================
+CREATE TABLE IF NOT EXISTS voters (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    fingerprint_id INT UNIQUE NOT NULL,
+    unique_id VARCHAR(20) UNIQUE NOT NULL,
+    phone_number VARCHAR(20),
+    name VARCHAR(100),
+    section VARCHAR(50),
+    age INT,
+    gender ENUM('Male', 'Female', 'Other'),
+    is_registered BOOLEAN DEFAULT FALSE,
+    status ENUM('not_voted', 'already_voted') DEFAULT 'not_voted',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at_timestamp INT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- VOTES TABLE
+-- Stores individual votes cast by voters
+-- ============================================
+CREATE TABLE IF NOT EXISTS votes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    voter_unique_id VARCHAR(20) NOT NULL,
+    candidate_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at_timestamp INT,
+    FOREIGN KEY (voter_unique_id) REFERENCES voters(unique_id) ON DELETE CASCADE,
+    FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- SESSIONS TABLE
+-- Manages voting session states and timing
+-- ============================================
+CREATE TABLE IF NOT EXISTS sessions (
+    id INT PRIMARY KEY DEFAULT 1,
+    status ENUM('pending', 'active', 'paused', 'finished') DEFAULT 'pending',
+    title VARCHAR(255) DEFAULT 'General Election',
+    description TEXT,
+    start_time DATETIME,
+    end_time DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- DEFAULT DATA INSERTION
+-- ============================================
+
+-- Insert default admin user (username: admin, password: admin123)
+-- Note: Password should be hashed in production
+INSERT IGNORE INTO admins (username, email, password_hash, created_at, created_at_timestamp)
+VALUES ('admin', 'admin@voting.com', '$2b$10$hashed_password_here', NOW(), UNIX_TIMESTAMP());
+
+-- Insert default voting session
+INSERT IGNORE INTO sessions (id, status, title, description, created_at, updated_at)
+VALUES (1, 'pending', 'General Election', 'Main voting session', NOW(), NOW());
+
+-- ============================================
+-- USEFUL QUERIES FOR TESTING AND MANAGEMENT
+-- ============================================
+
+-- View all tables
+SHOW TABLES;
+
+-- View table structures
+DESCRIBE admins;
+DESCRIBE candidates;
+DESCRIBE voters;
+DESCRIBE votes;
+DESCRIBE sessions;
+
+-- Sample data insertion queries (for testing)
+-- INSERT INTO candidates (name, party, position) VALUES ('John Doe', 'Party A', 'President');
+-- INSERT INTO voters (fingerprint_id, unique_id, phone_number) VALUES (12345, 'VOT-ABC12345', '+1234567890');
+
+-- Count records in each table
+SELECT 'Admins' as table_name, COUNT(*) as count FROM admins
+UNION ALL
+SELECT 'Candidates' as table_name, COUNT(*) as count FROM candidates
+UNION ALL
+SELECT 'Voters' as table_name, COUNT(*) as count FROM voters
+UNION ALL
+SELECT 'Votes' as table_name, COUNT(*) as count FROM votes
+UNION ALL
+SELECT 'Sessions' as table_name, COUNT(*) as count FROM sessions;
+
+-- Get voting statistics
+SELECT
+    (SELECT COUNT(*) FROM voters WHERE is_registered = TRUE) as registered_voters,
+    (SELECT COUNT(*) FROM voters WHERE status = 'already_voted') as voted_count,
+    (SELECT COUNT(*) FROM candidates) as total_candidates,
+    (SELECT COUNT(*) FROM votes) as total_votes;
+
+-- Reset voting session (for testing)
+-- UPDATE sessions SET status = 'pending', start_time = NULL, end_time = NULL WHERE id = 1;
+-- UPDATE voters SET status = 'not_voted';
+-- UPDATE candidates SET vote_count = 0;
+-- DELETE FROM votes;
