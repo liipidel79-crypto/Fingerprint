@@ -5,7 +5,9 @@
 // ================== CONFIG ==================
 const char* ssid = "BALBIN 2.4G";
 const char* password = "Ryzen55600g";
-const char* serverUrl = "http://192.168.100.78:3000/api/hardware/scan";
+const char* serverBase = "http://192.168.100.78:3000";
+const char* registerUrl = "http://192.168.100.78:3000/api/hardware/scan";
+const char* verifyVoteUrl = "http://192.168.100.78:3000/api/hardware/verify-vote";
 
 // Fingerprint sensor (UART2)
 HardwareSerial fingerSerial(2);
@@ -15,20 +17,25 @@ const int TX_PIN = 17;
 Adafruit_Fingerprint finger(&fingerSerial);
 
 // ================== LED PINS ==================
-const int LED_GREEN = 12;  // Newly registered
+const int LED_GREEN = 12;  // Newly registered / vote saved
 const int LED_RED   = 13;  // Incorrect / error
 const int LED_BLUE  = 14;  // Fingerprint exists / match found
+const int MODE_BTN  = 27;  // Toggle between Register and Vote Verify
+
+// ================== MODES ==================
+enum DeviceMode { MODE_REGISTER, MODE_VOTE_VERIFY };
+DeviceMode currentMode = MODE_REGISTER;
 
 // ================== SETUP ==================
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\n\n=== ESP32 Fingerprint System Started ===");
+  Serial.println("\n\n=== ESP32 Fingerprint Voting System ===");
 
-  // LED setup
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_RED,   OUTPUT);
   pinMode(LED_BLUE,  OUTPUT);
+  pinMode(MODE_BTN,  INPUT_PULLUP);
   digitalWrite(LED_GREEN, LOW);
   digitalWrite(LED_RED,   LOW);
   digitalWrite(LED_BLUE,  LOW);
@@ -37,19 +44,19 @@ void setup() {
   finger.begin(57600);
 
   if (finger.verifyPassword()) {
-    Serial.println("✅ Fingerprint sensor found!");
+    Serial.println("Fingerprint sensor found!");
     finger.getTemplateCount();
-    Serial.print("📊 Templates stored: ");
+    Serial.print("Templates stored: ");
     Serial.println(finger.templateCount);
     finger.setSecurityLevel(5);
-    Serial.println("🔒 Security level set to 5");
   } else {
-    Serial.println("❌ Fingerprint sensor NOT found! Check wiring (5V needed).");
+    Serial.println("Fingerprint sensor NOT found! Check wiring (5V needed).");
     while (1) delay(1000);
   }
 
   connectWiFi();
-  Serial.println("\n⏳ Waiting for finger...");
+  printModeHelp();
+  Serial.println("\nWaiting for finger...");
 }
 
 // ================== LED HELPER ==================
@@ -62,16 +69,44 @@ void flashLED(int pin, int duration = 2000) {
   digitalWrite(pin, LOW);
 }
 
+void printModeHelp() {
+  Serial.println("\n--- CURRENT MODE ---");
+  if (currentMode == MODE_REGISTER) {
+    Serial.println("REGISTER: Scan to enroll new voters or log existing ones");
+    Serial.println("  -> POST /api/hardware/scan");
+    flashLED(LED_GREEN, 300);
+  } else {
+    Serial.println("VOTE VERIFY: Scan after voting to confirm ballot");
+    Serial.println("  -> POST /api/hardware/verify-vote");
+    flashLED(LED_BLUE, 300);
+  }
+  Serial.println("Press GPIO 27 button to switch mode\n");
+}
+
 // ================== LOOP ==================
 void loop() {
+  // Toggle mode on button press
+  if (digitalRead(MODE_BTN) == LOW) {
+    delay(200);
+    if (digitalRead(MODE_BTN) == LOW) {
+      currentMode = (currentMode == MODE_REGISTER) ? MODE_VOTE_VERIFY : MODE_REGISTER;
+      printModeHelp();
+      while (digitalRead(MODE_BTN) == LOW) delay(50);
+    }
+  }
+
   uint8_t p = finger.getImage();
 
   if (p == FINGERPRINT_OK) {
-    Serial.println("\n👆 Finger detected! Processing...");
-    processFinger();
+    Serial.println("\nFinger detected! Processing...");
+    if (currentMode == MODE_REGISTER) {
+      processRegisterFinger();
+    } else {
+      processVoteVerifyFinger();
+    }
     delay(2000);
     clearFingerprintBuffer();
-    Serial.println("\n⏳ Waiting for finger...");
+    Serial.println("\nWaiting for finger...");
   }
 
   delay(100);
@@ -91,11 +126,11 @@ void connectWiFi() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✅ WiFi connected!");
+    Serial.println("\nWiFi connected!");
     Serial.print("IP: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\n❌ WiFi connection failed!");
+    Serial.println("\nWiFi connection failed!");
   }
 }
 
@@ -114,36 +149,60 @@ void clearFingerprintBuffer() {
   delay(200);
 }
 
-// ================== PROCESS FINGER (Auto Match or Enroll) ==================
-void processFinger() {
+// ================== REGISTER MODE ==================
+void processRegisterFinger() {
   uint8_t p = finger.image2Tz(1);
   if (p != FINGERPRINT_OK) {
-    Serial.println("❌ Image conversion failed. Try again.");
-    flashLED(LED_RED);  // ❌ Error → RED
+    Serial.println("Image conversion failed.");
+    flashLED(LED_RED);
     return;
   }
 
-  Serial.println("🔍 Searching database...");
+  Serial.println("Searching database...");
   p = finger.fingerSearch();
 
   if (p == FINGERPRINT_OK) {
-    Serial.print("✅ MATCH FOUND → ID #");
-    Serial.print(finger.fingerID);
-    Serial.print(" (confidence: ");
-    Serial.print(finger.confidence);
-    Serial.println(")");
-    flashLED(LED_BLUE);  // ✅ Already exists → BLUE
-    sendToServer(finger.fingerID);
+    Serial.print("MATCH FOUND -> ID #");
+    Serial.println(finger.fingerID);
+    flashLED(LED_BLUE);
+    sendToServer(registerUrl, finger.fingerID);
   }
   else if (p == FINGERPRINT_NOTFOUND) {
-    Serial.println("⚠️ No match found → NEW fingerprint detected!");
-    Serial.println("🔄 Starting automatic enrollment...");
+    Serial.println("No match -> Starting enrollment...");
     enrollNewFinger();
   }
   else {
-    Serial.print("❌ Search error code: ");
+    Serial.print("Search error: ");
     Serial.println(p);
-    flashLED(LED_RED);  // ❌ Unknown error → RED
+    flashLED(LED_RED);
+  }
+}
+
+// ================== VOTE VERIFY MODE ==================
+void processVoteVerifyFinger() {
+  uint8_t p = finger.image2Tz(1);
+  if (p != FINGERPRINT_OK) {
+    Serial.println("Image conversion failed.");
+    flashLED(LED_RED);
+    return;
+  }
+
+  Serial.println("Verifying voter fingerprint...");
+  p = finger.fingerSearch();
+
+  if (p == FINGERPRINT_OK) {
+    Serial.print("MATCH FOUND -> ID #");
+    Serial.println(finger.fingerID);
+    sendToServer(verifyVoteUrl, finger.fingerID, true);
+  }
+  else if (p == FINGERPRINT_NOTFOUND) {
+    Serial.println("Fingerprint NOT registered!");
+    flashLED(LED_RED);
+  }
+  else {
+    Serial.print("Search error: ");
+    Serial.println(p);
+    flashLED(LED_RED);
   }
 }
 
@@ -151,14 +210,13 @@ void processFinger() {
 void enrollNewFinger() {
   finger.getTemplateCount();
   uint16_t newId = finger.templateCount + 1;
-  Serial.print("📝 Assigning new ID: #");
+  Serial.print("Assigning new ID: #");
   Serial.println(newId);
 
-  Serial.println("✅ 1st scan captured.");
-  Serial.println("✋ Remove finger...");
+  Serial.println("1st scan captured. Remove finger...");
   delay(3500);
 
-  Serial.println("👆 Place the SAME finger again...");
+  Serial.println("Place the SAME finger again...");
   clearFingerprintBuffer();
 
   uint8_t p;
@@ -166,52 +224,53 @@ void enrollNewFinger() {
     delay(200);
     Serial.print(".");
   }
-  Serial.println("\n✅ 2nd scan captured.");
+  Serial.println("\n2nd scan captured.");
 
   p = finger.image2Tz(2);
   if (p != FINGERPRINT_OK) {
-    Serial.println("❌ 2nd scan conversion failed. Try again.");
-    flashLED(LED_RED);  // ❌ Failed → RED
+    Serial.println("2nd scan conversion failed.");
+    flashLED(LED_RED);
     return;
   }
 
   if (finger.createModel() != FINGERPRINT_OK) {
-    Serial.println("❌ Scans do NOT match! Try again.");
-    flashLED(LED_RED);  // ❌ Mismatch → RED
+    Serial.println("Scans do NOT match!");
+    flashLED(LED_RED);
     return;
   }
 
   if (finger.storeModel(newId) != FINGERPRINT_OK) {
-    Serial.println("❌ Failed to store fingerprint.");
-    flashLED(LED_RED);  // ❌ Store failed → RED
+    Serial.println("Failed to store fingerprint.");
+    flashLED(LED_RED);
     return;
   }
 
-  Serial.print("✅ Successfully enrolled! New ID: #");
+  Serial.print("Successfully enrolled! ID: #");
   Serial.println(newId);
-  finger.getTemplateCount();
-  Serial.print("📊 Total templates: ");
-  Serial.println(finger.templateCount);
-  flashLED(LED_GREEN);  // ✅ Newly registered → GREEN
-  sendToServer(newId);
+  flashLED(LED_GREEN);
+  sendToServer(registerUrl, newId);
 }
 
 // ================== SEND TO SERVER ==================
-void sendToServer(int fingerprintId) {
+void sendToServer(const char* url, int fingerprintId, bool isVoteVerify = false) {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("❌ WiFi not connected!");
+    Serial.println("WiFi not connected!");
+    flashLED(LED_RED);
     return;
   }
 
-  Serial.println("📤 Sending to server...");
+  Serial.println("Sending to server...");
 
   HTTPClient http;
-  http.begin(serverUrl);
+  http.begin(url);
   http.addHeader("Content-Type", "application/json");
+  http.setTimeout(10000);
 
   String payload = "{\"fingerprintId\":" + String(fingerprintId) +
                    ",\"quality\":100,\"matchScore\":95}";
 
+  Serial.print("URL: ");
+  Serial.println(url);
   Serial.print("Payload: ");
   Serial.println(payload);
 
@@ -219,14 +278,24 @@ void sendToServer(int fingerprintId) {
 
   if (httpCode > 0) {
     String response = http.getString();
-    Serial.print("✅ HTTP Response: ");
+    Serial.print("HTTP Response: ");
     Serial.println(httpCode);
-    Serial.println("Server reply: " + response);
+    Serial.println("Server: " + response);
+
+    if (isVoteVerify) {
+      if (response.indexOf("\"verified\":true") >= 0 || response.indexOf("\"success\":true") >= 0) {
+        Serial.println("VOTE CONFIRMED!");
+        flashLED(LED_GREEN, 3000);
+      } else {
+        Serial.println("Vote verification failed.");
+        flashLED(LED_RED);
+      }
+    }
   } else {
-    Serial.print("❌ HTTP error: ");
+    Serial.print("HTTP error: ");
     Serial.println(httpCode);
+    flashLED(LED_RED);
   }
 
   http.end();
 }
-192.168.100.78
