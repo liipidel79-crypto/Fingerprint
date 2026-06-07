@@ -299,3 +299,20 @@ void sendToServer(const char* url, int fingerprintId, bool isVoteVerify = false)
 
   http.end();
 }
+
+
+C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino: In function 'void processRegisterFinger()':
+C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino:168:5: error: 'sendToServer' was not declared in this scope
+  168 |     sendToServer(registerUrl, finger.fingerID);
+      |     ^~~~~~~~~~~~
+C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino: In function 'void processVoteVerifyFinger()':
+C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino:196:5: error: 'sendToServer' was not declared in this scope
+  196 |     sendToServer(verifyVoteUrl, finger.fingerID, true);
+      |     ^~~~~~~~~~~~
+C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino: In function 'void enrollNewFinger()':
+C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino:251:3: error: 'sendToServer' was not declared in this scope
+  251 |   sendToServer(registerUrl, newId);
+      |   ^~~~~~~~~~~~
+exit status 1
+
+Compilation error: 'sendToServer' was not declared in this scope
