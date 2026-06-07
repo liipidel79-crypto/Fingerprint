@@ -1,3 +1,5 @@
+updated
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Adafruit_Fingerprint.h>
@@ -25,6 +27,16 @@ const int MODE_BTN  = 27;  // Toggle between Register and Vote Verify
 // ================== MODES ==================
 enum DeviceMode { MODE_REGISTER, MODE_VOTE_VERIFY };
 DeviceMode currentMode = MODE_REGISTER;
+
+// Forward declarations (Arduino requires these before use)
+void connectWiFi();
+void printModeHelp();
+void flashLED(int pin, int duration = 2000);
+void clearFingerprintBuffer();
+void processRegisterFinger();
+void processVoteVerifyFinger();
+void enrollNewFinger();
+void sendToServer(const char* url, int fingerprintId, bool isVoteVerify = false);
 
 // ================== SETUP ==================
 void setup() {
@@ -60,7 +72,7 @@ void setup() {
 }
 
 // ================== LED HELPER ==================
-void flashLED(int pin, int duration = 2000) {
+void flashLED(int pin, int duration) {
   digitalWrite(LED_GREEN, LOW);
   digitalWrite(LED_RED,   LOW);
   digitalWrite(LED_BLUE,  LOW);
@@ -252,7 +264,7 @@ void enrollNewFinger() {
 }
 
 // ================== SEND TO SERVER ==================
-void sendToServer(const char* url, int fingerprintId, bool isVoteVerify = false) {
+void sendToServer(const char* url, int fingerprintId, bool isVoteVerify) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi not connected!");
     flashLED(LED_RED);
@@ -299,20 +311,3 @@ void sendToServer(const char* url, int fingerprintId, bool isVoteVerify = false)
 
   http.end();
 }
-
-
-C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino: In function 'void processRegisterFinger()':
-C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino:168:5: error: 'sendToServer' was not declared in this scope
-  168 |     sendToServer(registerUrl, finger.fingerID);
-      |     ^~~~~~~~~~~~
-C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino: In function 'void processVoteVerifyFinger()':
-C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino:196:5: error: 'sendToServer' was not declared in this scope
-  196 |     sendToServer(verifyVoteUrl, finger.fingerID, true);
-      |     ^~~~~~~~~~~~
-C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino: In function 'void enrollNewFinger()':
-C:\Users\Igmedio\AppData\Local\Temp\.arduinoIDE-unsaved202657-17708-35pevk.khpzy\sketch_jun7a\sketch_jun7a.ino:251:3: error: 'sendToServer' was not declared in this scope
-  251 |   sendToServer(registerUrl, newId);
-      |   ^~~~~~~~~~~~
-exit status 1
-
-Compilation error: 'sendToServer' was not declared in this scope
