@@ -1,15 +1,15 @@
-updated
+
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Adafruit_Fingerprint.h>
 
 // ================== CONFIG ==================
-const char* ssid = "BALBIN 2.4G";
-const char* password = "Ryzen55600g";
-const char* serverBase = "http://192.168.100.78:3000";
-const char* registerUrl = "http://192.168.100.78:3000/api/hardware/scan";
-const char* verifyVoteUrl = "http://192.168.100.78:3000/api/hardware/verify-vote";
+const char* ssid = "Infinix ZERO 30 5G";
+const char* password = "11243555";
+const char* serverBase = "http://10.83.108.175:3000";
+const char* registerUrl = "http://10.83.108.175:3000/api/hardware/scan";
+const char* verifyVoteUrl = "http://10.83.108.175:3000/api/hardware/verify-vote";
 
 // Fingerprint sensor (UART2)
 HardwareSerial fingerSerial(2);
