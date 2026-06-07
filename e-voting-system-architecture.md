@@ -6,6 +6,7 @@
 const char* ssid = "BALBIN 2.4G";
 const char* password = "Ryzen55600g";
 const char* serverBase = "http://192.168.100.78:3000";
+const char* modeUrl = "http://192.168.100.78:3000/api/hardware/mode";
 const char* registerUrl = "http://192.168.100.78:3000/api/hardware/scan";
 const char* verifyVoteUrl = "http://192.168.100.78:3000/api/hardware/verify-vote";
 
@@ -95,7 +96,7 @@ void printModeHelp() {
 
 // ================== LOOP ==================
 void loop() {
-  // Toggle mode on button press
+  // Manual mode toggle button (optional - kept for backup)
   if (digitalRead(MODE_BTN) == LOW) {
     delay(200);
     if (digitalRead(MODE_BTN) == LOW) {
@@ -109,6 +110,16 @@ void loop() {
 
   if (p == FINGERPRINT_OK) {
     Serial.println("\nFinger detected! Processing...");
+    
+    // Query server for current mode before processing
+    String serverMode = getServerMode();
+    if (serverMode == "verify") {
+      currentMode = MODE_VOTE_VERIFY;
+    } else {
+      currentMode = MODE_REGISTER;
+    }
+    printModeHelp();
+    
     if (currentMode == MODE_REGISTER) {
       processRegisterFinger();
     } else {
@@ -142,6 +153,39 @@ void connectWiFi() {
   } else {
     Serial.println("\nWiFi connection failed!");
   }
+}
+
+// ================== GET SERVER MODE ==================
+String getServerMode() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi not connected!");
+    return "register"; // Default to register
+  }
+
+  HTTPClient http;
+  http.begin(modeUrl);
+  http.setTimeout(5000);
+
+  int httpCode = http.GET();
+  String mode = "register"; // Default
+
+  if (httpCode > 0) {
+    String response = http.getString();
+    Serial.print("Mode response: ");
+    Serial.println(response);
+    
+    if (response.indexOf("\"mode\":\"verify\"") >= 0) {
+      mode = "verify";
+    } else {
+      mode = "register";
+    }
+  } else {
+    Serial.print("Mode query error: ");
+    Serial.println(httpCode);
+  }
+
+  http.end();
+  return mode;
 }
 
 // ================== CLEAR BUFFER ==================
