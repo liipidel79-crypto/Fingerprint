@@ -20,6 +20,9 @@ This document provides a comprehensive architectural overview of the Fingerprint
 6. [Deployment Architecture](#deployment-architecture)
 7. [API Specifications](#api-specifications)
 8. [Database Schema](#database-schema)
+
+
+now,there have changes in my system,once the user or voter registered there finger print ,when they vote  and after the vote  it will scan their finger once more to identify if they have registered there fingerprint,and once the system detect the fingerprint or registered,it will automatically save the vote and mark the user as vote.and in the seting vote ,add a start date and end date ,if the admin stop the vote it will not count and it delete the voting election.instead of deletin any data from the database,create a retrieve data or trashbin so it will not automatically delete the data 
 9. [Hardware Specifications](#hardware-specifications)
 10. [System Requirements](#system-requirements)
 
